@@ -184,6 +184,13 @@
   }
   .pdf-canvas-wrap canvas{max-width:100%; box-shadow:0 2px 10px rgba(0,0,0,0.35);}
   .pdf-loading{color:#f0f0f0; padding:50px 20px; font-size:0.9rem;}
+  .rotate-hint{
+    display:flex; align-items:center; gap:10px;
+    background:#fff3cd; color:#6b5320; border:1px solid #f0d78c;
+    padding:8px 12px; border-radius:6px; font-size:0.85rem; margin:10px 0;
+  }
+  .rotate-hint span:first-child{flex:1;}
+  .rotate-hint-close{cursor:pointer; font-size:1.15rem; line-height:1; opacity:0.7;}
   .modal.wide{max-width:1000px;}
   .radio-group{display:flex; gap:16px; margin-top:4px;}
   .radio-option{display:flex; align-items:center; gap:6px; font-weight:500; font-size:0.92rem; color:var(--ink); margin:0;}
@@ -355,6 +362,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 let currentUser = null;
+let pdfResizeHandler = null; // tracks the active resize/rotation listener for the open PDF viewer
 let items = []; // cached list from Firestore
 
 // ---------- helpers ----------
@@ -451,6 +459,26 @@ function renderBoard(){
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Shows a dismissible "turn your phone sideways" prompt when a post is
+// opened on a small screen in portrait orientation. Auto-hides itself
+// the moment the device is rotated to landscape.
+function maybeShowRotateHint(){
+  const mq = window.matchMedia('(orientation: portrait)');
+  if(!mq.matches || window.innerWidth >= 900) return;
+  const body = $('viewModalBody');
+  const existing = body.querySelector('.rotate-hint');
+  if(existing) existing.remove();
+  const hint = document.createElement('div');
+  hint.className = 'rotate-hint';
+  hint.innerHTML = '<span>&#8635; Turn your phone sideways for the best view</span><span class="rotate-hint-close">&times;</span>';
+  const h2 = body.querySelector('h2');
+  if(h2){ h2.insertAdjacentElement('afterend', hint); } else { body.appendChild(hint); }
+  function remove(){ hint.remove(); mq.removeEventListener('change', onChange); }
+  function onChange(e){ if(!e.matches) remove(); }
+  mq.addEventListener('change', onChange);
+  hint.querySelector('.rotate-hint-close').addEventListener('click', remove);
 }
 
 // ---------- add flow ----------
@@ -673,6 +701,7 @@ function openScheduleEditor(schedule, existingId){
     }
   }
   openOverlay('viewOverlay');
+  maybeShowRotateHint();
 }
 
 // ---------- notice viewer ----------
@@ -700,8 +729,6 @@ function openNoticeViewer(item){
     closeOverlay('viewOverlay');
     body.classList.remove('wide');
   });
-
-  renderPdfIntoViewer(item.url);
 
   if(isAdmin){
     $('deleteNoticeBtn').addEventListener('click', async ()=>{
@@ -737,6 +764,8 @@ function openNoticeViewer(item){
     });
   }
   openOverlay('viewOverlay');
+  maybeShowRotateHint();
+  renderPdfIntoViewer(item.url);
 }
 
 // Renders a PDF ourselves via PDF.js, page by page, instead of relying on
@@ -748,10 +777,18 @@ async function renderPdfIntoViewer(url){
   const nextBtn = $('pdfNext');
   let pdf, currentPage = 1, totalPages = 1;
 
+  function currentWidth(){
+    // wrap sits inside .modal.wide, which is what actually constrains
+    // width — fall back sensibly if either isn't measurable yet.
+    const modalEl = document.querySelector('#viewModalBody.wide') || wrap.closest('.modal');
+    const raw = wrap.clientWidth || (modalEl ? modalEl.clientWidth - 56 : window.innerWidth - 40);
+    return Math.max(200, raw - 20);
+  }
+
   async function showPage(num){
     wrap.innerHTML = '<div class="pdf-loading">Loading page…</div>';
     const page = await pdf.getPage(num);
-    const containerWidth = Math.min(wrap.clientWidth || 700, 900) - 20;
+    const containerWidth = currentWidth();
     const unscaledViewport = page.getViewport({ scale: 1 });
     const scale = containerWidth / unscaledViewport.width;
     const viewport = page.getViewport({ scale });
@@ -770,6 +807,20 @@ async function renderPdfIntoViewer(url){
     prevBtn.disabled = num <= 1;
     nextBtn.disabled = num >= totalPages;
   }
+
+  // Re-fit whenever the window resizes or the phone is rotated, so the
+  // page always matches the space actually available right now.
+  if(pdfResizeHandler){
+    window.removeEventListener('resize', pdfResizeHandler);
+    window.removeEventListener('orientationchange', pdfResizeHandler);
+  }
+  let resizeTimer;
+  pdfResizeHandler = ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{ if(pdf) showPage(currentPage); }, 200);
+  };
+  window.addEventListener('resize', pdfResizeHandler);
+  window.addEventListener('orientationchange', pdfResizeHandler);
 
   try{
     pdf = await pdfjsLib.getDocument(url).promise;
