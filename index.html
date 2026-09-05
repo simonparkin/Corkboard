@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corkboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cork: #b98d5b;
+    --cork-dark: #9c7548;
+    --cork-shadow: #7d5d38;
+    --paper: #fbf6ec;
+    --paper-edge: #e8dcc0;
+    --clip: #3e5c76;
+    --clip-light: #5c7b98;
+    --ink: #2b2420;
+    --ink-soft: #6b5f52;
+    --pin-red: #c1443c;
+    --pin-shadow: rgba(0,0,0,0.35);
+    --good: #4a7c59;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Work Sans', sans-serif;
+    color:var(--ink);
+    background-color: var(--cork);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(0,0,0,0.06) 0, transparent 3%),
+      radial-gradient(circle at 70% 60%, rgba(0,0,0,0.05) 0, transparent 4%),
+      radial-gradient(circle at 40% 80%, rgba(0,0,0,0.05) 0, transparent 3%),
+      radial-gradient(circle at 85% 15%, rgba(0,0,0,0.04) 0, transparent 3%),
+      linear-gradient(var(--cork), var(--cork));
+    min-height:100vh;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:22px 28px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.12), transparent);
+  }
+  header h1{
+    font-family:'Caveat', cursive;
+    font-weight:700;
+    font-size:2.6rem;
+    color:var(--paper);
+    margin:0;
+    text-shadow: 1px 2px 3px rgba(0,0,0,0.25);
+  }
+  .header-right{display:flex; align-items:center; gap:10px;}
+  button{
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    border:none;
+    border-radius:6px;
+    padding:10px 18px;
+    cursor:pointer;
+    font-size:0.95rem;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  button:active{transform: translateY(1px);}
+  .btn-primary{background:var(--paper); color:var(--ink);}
+  .btn-primary:hover{box-shadow:0 2px 8px rgba(0,0,0,0.25);}
+  .btn-ghost{background:transparent; color:var(--paper); border:1.5px solid var(--paper);}
+  .btn-danger{background:var(--pin-red); color:#fff;}
+  .btn-small{padding:6px 12px; font-size:0.85rem;}
+  #who{color:var(--paper); font-size:0.9rem; margin-right:6px;}
+
+  main{padding: 10px 28px 100px;}
+  #board{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap:34px 26px;
+    max-width:1200px;
+    margin:20px auto;
+  }
+  .empty-state{
+    color: var(--paper);
+    text-align:center;
+    margin-top:60px;
+    font-size:1.1rem;
+    opacity:0.9;
+  }
+
+  .card{
+    position:relative;
+    padding:22px 18px 16px;
+    cursor:pointer;
+    min-height:150px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    box-shadow: 3px 6px 10px rgba(0,0,0,0.28);
+  }
+  .card:nth-child(3n+1){transform:rotate(-1.6deg);}
+  .card:nth-child(3n+2){transform:rotate(1deg);}
+  .card:nth-child(3n){transform:rotate(-0.6deg);}
+  .card:hover{transform:scale(1.03) rotate(0deg); box-shadow:5px 10px 16px rgba(0,0,0,0.32); z-index:2;}
+
+  .card.notice{background:var(--paper); border:1px solid var(--paper-edge);}
+  .card.schedule{background:var(--clip); color:#fff;}
+
+  .pin{
+    position:absolute;
+    top:-10px; left:50%;
+    transform:translateX(-50%);
+    width:18px; height:18px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #e8746c, var(--pin-red));
+    box-shadow: 0 3px 4px var(--pin-shadow);
+  }
+  .card-kind{
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    opacity:0.65;
+    margin-bottom:6px;
+  }
+  .card-title{
+    font-family:'Caveat', cursive;
+    font-weight:700;
+    font-size:1.5rem;
+    line-height:1.2;
+    margin:0 0 10px;
+    word-break:break-word;
+  }
+  .card-meta{font-size:0.78rem; opacity:0.75;}
+
+  .fab{
+    position:fixed;
+    right:30px; bottom:30px;
+    width:60px; height:60px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #e8746c, var(--pin-red));
+    color:#fff;
+    font-size:2rem;
+    line-height:60px;
+    text-align:center;
+    box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    display:none;
+  }
+
+  .overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(20,15,10,0.55);
+    align-items:center; justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--paper);
+    border-radius:10px;
+    max-width:720px; width:100%;
+    max-height:88vh;
+    overflow-y:auto;
+    padding:26px 28px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  .modal h2{font-family:'Caveat', cursive; font-size:2rem; margin:0 0 16px; color:var(--ink);}
+  .modal label{display:block; font-size:0.85rem; font-weight:600; margin:14px 0 5px; color:var(--ink-soft);}
+  .modal input[type=text], .modal input[type=email], .modal input[type=password], .modal input[type=file]{
+    width:100%; padding:9px 11px; border:1px solid var(--paper-edge); border-radius:6px; font-family:inherit; font-size:0.95rem;
+  }
+  .modal .row{display:flex; gap:10px; justify-content:flex-end; margin-top:22px; flex-wrap:wrap;}
+  .modal .choices{display:flex; flex-direction:column; gap:10px; margin-top:6px;}
+  .choice-btn{
+    text-align:left; background:#fff; border:1.5px solid var(--paper-edge); border-radius:8px; padding:14px 16px;
+  }
+  .choice-btn:hover{border-color:var(--clip);}
+  .choice-btn strong{display:block; font-size:1rem;}
+  .choice-btn span{font-size:0.83rem; color:var(--ink-soft);}
+  .close-x{position:absolute; top:14px; right:16px; background:none; color:var(--ink-soft); font-size:1.3rem; padding:2px 8px;}
+  .modal-inner{position:relative;}
+
+  iframe.pdf-view{width:100%; height:60vh; border:1px solid var(--paper-edge); border-radius:6px;}
+
+  table.sched{width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;}
+  table.sched td, table.sched th{border:1px solid var(--paper-edge); padding:6px 8px; min-width:70px;}
+  table.sched td[contenteditable=true]{background:#fffef8;}
+  .sched-tools{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+
+  #toast{
+    position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:12px 20px; border-radius:8px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.3); z-index:100; display:none; font-size:0.9rem;
+  }
+  .hint{font-size:0.8rem; color:var(--ink-soft); margin-top:4px;}
+  .error-text{color:var(--pin-red); font-size:0.85rem; margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Corkboard</h1>
+  <div class="header-right">
+    <span id="who"></span>
+    <button id="notifyBtn" class="btn-ghost btn-small" style="display:none;">Enable notifications</button>
+    <button id="loginBtn" class="btn-ghost">Log in</button>
+    <button id="logoutBtn" class="btn-ghost" style="display:none;">Log out</button>
+  </div>
+</header>
+
+<main>
+  <div id="board"></div>
+  <div id="emptyState" class="empty-state" style="display:none;">Nothing's pinned up yet.</div>
+</main>
+
+<div class="fab" id="fab">+</div>
+
+<!-- Login modal -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal modal-inner">
+    <button class="close-x" data-close="loginOverlay">&times;</button>
+    <h2>Log in</h2>
+    <label>Email</label>
+    <input type="email" id="loginEmail">
+    <label>Password</label>
+    <input type="password" id="loginPassword">
+    <div class="error-text" id="loginError"></div>
+    <div class="row">
+      <button class="btn-primary" id="loginSubmit">Log in</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add chooser modal -->
+<div class="overlay" id="addChooserOverlay">
+  <div class="modal modal-inner">
+    <button class="close-x" data-close="addChooserOverlay">&times;</button>
+    <h2>Pin something new</h2>
+    <div class="choices">
+      <button class="choice-btn" id="chooseNotice">
+        <strong>Upload a notice (PDF)</strong>
+        <span>A document people can view, like a poster or announcement</span>
+      </button>
+      <button class="choice-btn" id="chooseNewSchedule">
+        <strong>Create a new schedule</strong>
+        <span>Build an editable table from scratch</span>
+      </button>
+      <button class="choice-btn" id="chooseImportSchedule">
+        <strong>Import a schedule</strong>
+        <span>From a CSV, Excel file, or a PDF someone else produced</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload notice modal -->
+<div class="overlay" id="noticeOverlay">
+  <div class="modal modal-inner">
+    <button class="close-x" data-close="noticeOverlay">&times;</button>
+    <h2>Upload a notice</h2>
+    <label>Title (shown on the board)</label>
+    <input type="text" id="noticeTitle" placeholder="e.g. Circuit Visit Schedule">
+    <label>PDF file</label>
+    <input type="file" id="noticeFile" accept="application/pdf">
+    <div class="hint">Up to 15MB.</div>
+    <div class="error-text" id="noticeError"></div>
+    <div class="row">
+      <button class="btn-primary" id="noticeSubmit">Pin it up</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import schedule source modal -->
+<div class="overlay" id="importOverlay">
+  <div class="modal modal-inner">
+    <button class="close-x" data-close="importOverlay">&times;</button>
+    <h2>Import a schedule</h2>
+    <label>Title</label>
+    <input type="text" id="importTitle" placeholder="e.g. September CLM Schedule">
+    <label>File (.csv, .xlsx, .xls, or .pdf)</label>
+    <input type="file" id="importFile" accept=".csv,.xlsx,.xls,.pdf">
+    <div class="hint">PDFs are converted automatically as a best guess — you'll get a chance to fix up the table before saving.</div>
+    <div class="error-text" id="importError"></div>
+    <div class="row">
+      <button class="btn-primary" id="importSubmit">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Viewer / editor modal -->
+<div class="overlay" id="viewOverlay">
+  <div class="modal modal-inner" id="viewModalBody">
+    <button class="close-x" data-close="viewOverlay">&times;</button>
+    <!-- filled dynamically -->
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getMessaging, getToken, onMessage, isSupported as messagingIsSupported
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+import {
+  getStorage, ref, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB85TgADS5qYiQUYGpnvoWZGmPXwxzjerM",
+  authDomain: "corkboard-7daf8.firebaseapp.com",
+  projectId: "corkboard-7daf8",
+  storageBucket: "corkboard-7daf8.firebasestorage.app",
+  messagingSenderId: "573617407877",
+  appId: "1:573617407877:web:c87f4ce5d1e57ffe68e6ec"
+};
+const VAPID_KEY = "BHDoUW8Y5c29BpwkSPUSforYtAJijcNqvD1OB8vfrMtnRuLXnfIvY0DEDZmNKXFUdcM7DTi8cmtkcVIqNBfUFAs";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+let currentUser = null;
+let items = []; // cached list from Firestore
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+function openOverlay(id){ $(id).classList.add('open'); }
+function closeOverlay(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.addEventListener('click', ()=> closeOverlay(b.dataset.close));
+});
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> t.style.display='none', 4000);
+}
+function fmtDate(ts){
+  if(!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+}
+
+// ---------- auth ----------
+$('loginBtn').addEventListener('click', ()=> openOverlay('loginOverlay'));
+$('loginSubmit').addEventListener('click', async ()=>{
+  $('loginError').textContent = '';
+  try{
+    await signInWithEmailAndPassword(auth, $('loginEmail').value.trim(), $('loginPassword').value);
+    closeOverlay('loginOverlay');
+    $('loginEmail').value=''; $('loginPassword').value='';
+  }catch(e){
+    $('loginError').textContent = 'Could not log in — check the email and password.';
+  }
+});
+$('logoutBtn').addEventListener('click', ()=> signOut(auth));
+
+onAuthStateChanged(auth, (user)=>{
+  currentUser = user;
+  $('loginBtn').style.display = user ? 'none' : 'inline-block';
+  $('logoutBtn').style.display = user ? 'inline-block' : 'none';
+  $('who').textContent = user ? user.email : '';
+  $('fab').style.display = user ? 'flex' : 'none';
+  $('fab').style.display = user ? 'block' : 'none';
+  renderBoard();
+});
+
+// ---------- board data ----------
+const itemsQuery = query(collection(db, 'items'), orderBy('updatedAt', 'desc'));
+onSnapshot(itemsQuery, (snap)=>{
+  items = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
+  renderBoard();
+});
+
+function renderBoard(){
+  const board = $('board');
+  board.innerHTML = '';
+  $('emptyState').style.display = items.length ? 'none' : 'block';
+  items.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'card ' + (item.type === 'schedule' ? 'schedule' : 'notice');
+    card.innerHTML = `
+      <div class="pin"></div>
+      <div>
+        <div class="card-kind">${item.type === 'schedule' ? 'Schedule' : 'Notice'}</div>
+        <div class="card-title">${escapeHtml(item.title || 'Untitled')}</div>
+      </div>
+      <div class="card-meta">Updated ${fmtDate(item.updatedAt)}${item.uploadedByEmail ? ' by ' + escapeHtml(item.uploadedByEmail) : ''}</div>
+    `;
+    card.addEventListener('click', ()=> openItem(item));
+    board.appendChild(card);
+  });
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- add flow ----------
+$('fab').addEventListener('click', ()=> openOverlay('addChooserOverlay'));
+$('chooseNotice').addEventListener('click', ()=>{ closeOverlay('addChooserOverlay'); openOverlay('noticeOverlay'); });
+$('chooseNewSchedule').addEventListener('click', ()=>{
+  closeOverlay('addChooserOverlay');
+  openScheduleEditor({ title:'', columns:['Column 1','Column 2','Column 3'], rows:[['','',''],['','',''],['','','']] }, null);
+});
+$('chooseImportSchedule').addEventListener('click', ()=>{ closeOverlay('addChooserOverlay'); openOverlay('importOverlay'); });
+
+$('noticeSubmit').addEventListener('click', async ()=>{
+  $('noticeError').textContent='';
+  const title = $('noticeTitle').value.trim();
+  const file = $('noticeFile').files[0];
+  if(!title || !file){ $('noticeError').textContent = 'Please add a title and choose a file.'; return; }
+  if(file.size > 15000000){ $('noticeError').textContent = 'That file is too big (max 15MB).'; return; }
+  try{
+    const id = crypto.randomUUID();
+    const storagePath = `notices/${id}.pdf`;
+    const sref = ref(storage, storagePath);
+    await uploadBytes(sref, file, { contentType: 'application/pdf' });
+    const url = await getDownloadURL(sref);
+    await setDoc(doc(db, 'items', id), {
+      type: 'notice',
+      title,
+      url,
+      storagePath,
+      updatedAt: serverTimestamp(),
+      uploadedByEmail: currentUser ? currentUser.email : null
+    });
+    closeOverlay('noticeOverlay');
+    $('noticeTitle').value=''; $('noticeFile').value='';
+    toast('Notice pinned up.');
+  }catch(e){
+    console.error(e);
+    $('noticeError').textContent = 'Something went wrong saving that.';
+  }
+});
+
+// ---------- import schedule ----------
+$('importSubmit').addEventListener('click', async ()=>{
+  $('importError').textContent = '';
+  const title = $('importTitle').value.trim();
+  const file = $('importFile').files[0];
+  if(!title || !file){ $('importError').textContent = 'Please add a title and choose a file.'; return; }
+  const ext = file.name.split('.').pop().toLowerCase();
+  try{
+    let table;
+    if(ext === 'csv'){
+      table = await parseCsv(file);
+    }else if(ext === 'xlsx' || ext === 'xls'){
+      table = await parseXlsx(file);
+    }else if(ext === 'pdf'){
+      table = await parsePdfToTable(file);
+    }else{
+      $('importError').textContent = 'Unsupported file type.';
+      return;
+    }
+    closeOverlay('importOverlay');
+    $('importTitle').value=''; $('importFile').value='';
+    const columns = table[0] ? table[0].map((_,i)=>'Column ' + (i+1)) : ['Column 1'];
+    openScheduleEditor({ title, columns, rows: table }, null);
+  }catch(e){
+    console.error(e);
+    $('importError').textContent = 'Could not read that file.';
+  }
+});
+
+function parseCsv(file){
+  return new Promise((resolve, reject)=>{
+    Papa.parse(file, {
+      complete: (res)=> resolve(res.data.filter(r=> r.some(c=> String(c).trim() !== ''))),
+      error: reject
+    });
+  });
+}
+async function parseXlsx(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+  return data.filter(r=> r.some(c=> String(c).trim() !== ''));
+}
+
+// Best-effort PDF -> table extraction using pdf.js text positions
+async function parsePdfToTable(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  const allRows = [];
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items.map(it=> ({
+      text: it.str,
+      x: it.transform[4],
+      y: Math.round(it.transform[5] / 4) * 4 // bucket y to group into rows
+    })).filter(it=> it.text.trim() !== '');
+    // group by row (y), then sort each row left-to-right by x
+    const rowMap = new Map();
+    items.forEach(it=>{
+      if(!rowMap.has(it.y)) rowMap.set(it.y, []);
+      rowMap.get(it.y).push(it);
+    });
+    const sortedYs = Array.from(rowMap.keys()).sort((a,b)=> b - a); // top to bottom (pdf y grows upward)
+    sortedYs.forEach(y=>{
+      const rowItems = rowMap.get(y).sort((a,b)=> a.x - b.x);
+      allRows.push(rowItems.map(it=> it.text));
+    });
+  }
+  // pad rows to the same length
+  const maxLen = Math.max(1, ...allRows.map(r=> r.length));
+  return allRows.map(r=>{
+    const padded = r.slice();
+    while(padded.length < maxLen) padded.push('');
+    return padded;
+  });
+}
+
+// ---------- schedule editor ----------
+function openScheduleEditor(schedule, existingId){
+  const body = $('viewModalBody');
+  const isAdmin = !!currentUser;
+  let cols = schedule.columns.length;
+  let rowsData = schedule.rows.map(r=> r.slice());
+
+  function tableHtml(){
+    let html = '<table class="sched"><tbody>';
+    rowsData.forEach((row, ri)=>{
+      html += '<tr>';
+      for(let ci=0; ci<cols; ci++){
+        const val = row[ci] !== undefined ? row[ci] : '';
+        html += `<td contenteditable="${isAdmin}" data-r="${ri}" data-c="${ci}">${escapeHtml(val)}</td>`;
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  body.innerHTML = `
+    <button class="close-x" data-close="viewOverlay">&times;</button>
+    <h2>${existingId ? 'Edit schedule' : 'New schedule'}</h2>
+    <label>Title</label>
+    <input type="text" id="schedTitleInput" value="${escapeHtml(schedule.title)}" ${isAdmin ? '' : 'disabled'}>
+    <div id="schedTableWrap">${tableHtml()}</div>
+    ${isAdmin ? `<div class="sched-tools">
+      <button class="btn-small btn-ghost" id="addRowBtn" style="border-color:var(--ink); color:var(--ink);">+ Row</button>
+      <button class="btn-small btn-ghost" id="addColBtn" style="border-color:var(--ink); color:var(--ink);">+ Column</button>
+      <button class="btn-small btn-ghost" id="delRowBtn" style="border-color:var(--ink); color:var(--ink);">- Row</button>
+      <button class="btn-small btn-ghost" id="delColBtn" style="border-color:var(--ink); color:var(--ink);">- Column</button>
+    </div>` : ''}
+    <div class="row">
+      ${existingId && isAdmin ? '<button class="btn-danger" id="deleteScheduleBtn">Delete</button>' : ''}
+      ${isAdmin ? '<button class="btn-primary" id="saveScheduleBtn">Save</button>' : ''}
+    </div>
+  `;
+  document.querySelector('[data-close="viewOverlay"]').addEventListener('click', ()=> closeOverlay('viewOverlay'));
+
+  function syncFromDom(){
+    document.querySelectorAll('#schedTableWrap td').forEach(td=>{
+      const r = +td.dataset.r, c = +td.dataset.c;
+      if(!rowsData[r]) rowsData[r] = [];
+      rowsData[r][c] = td.textContent;
+    });
+  }
+
+  if(isAdmin){
+    $('addRowBtn').addEventListener('click', ()=>{
+      syncFromDom();
+      rowsData.push(new Array(cols).fill(''));
+      $('schedTableWrap').innerHTML = tableHtml();
+    });
+    $('addColBtn').addEventListener('click', ()=>{
+      syncFromDom();
+      cols++;
+      rowsData.forEach(r=> r.push(''));
+      $('schedTableWrap').innerHTML = tableHtml();
+    });
+    $('delRowBtn').addEventListener('click', ()=>{
+      syncFromDom();
+      if(rowsData.length>1) rowsData.pop();
+      $('schedTableWrap').innerHTML = tableHtml();
+    });
+    $('delColBtn').addEventListener('click', ()=>{
+      syncFromDom();
+      if(cols>1){ cols--; rowsData.forEach(r=> r.pop()); }
+      $('schedTableWrap').innerHTML = tableHtml();
+    });
+    $('saveScheduleBtn').addEventListener('click', async ()=>{
+      syncFromDom();
+      const title = $('schedTitleInput').value.trim() || 'Untitled schedule';
+      const id = existingId || crypto.randomUUID();
+      await setDoc(doc(db, 'items', id), {
+        type: 'schedule',
+        title,
+        columns: new Array(cols).fill(0).map((_,i)=>'Column ' + (i+1)),
+        rows: rowsData,
+        updatedAt: serverTimestamp(),
+        uploadedByEmail: currentUser.email
+      });
+      closeOverlay('viewOverlay');
+      toast('Schedule saved.');
+    });
+    if(existingId){
+      $('deleteScheduleBtn').addEventListener('click', async ()=>{
+        if(confirm('Delete this schedule? This cannot be undone.')){
+          await deleteDoc(doc(db, 'items', existingId));
+          closeOverlay('viewOverlay');
+          toast('Deleted.');
+        }
+      });
+    }
+  }
+  openOverlay('viewOverlay');
+}
+
+// ---------- notice viewer ----------
+function openNoticeViewer(item){
+  const body = $('viewModalBody');
+  const isAdmin = !!currentUser;
+  body.innerHTML = `
+    <button class="close-x" data-close="viewOverlay">&times;</button>
+    <h2>${escapeHtml(item.title)}</h2>
+    <iframe class="pdf-view" src="${item.url}"></iframe>
+    ${isAdmin ? `
+    <label>Replace file</label>
+    <input type="file" id="replaceFile" accept="application/pdf">
+    <div class="error-text" id="replaceError"></div>
+    <div class="row">
+      <button class="btn-danger" id="deleteNoticeBtn">Delete</button>
+      <button class="btn-primary" id="replaceNoticeBtn">Replace</button>
+    </div>` : ''}
+  `;
+  document.querySelector('[data-close="viewOverlay"]').addEventListener('click', ()=> closeOverlay('viewOverlay'));
+  if(isAdmin){
+    $('deleteNoticeBtn').addEventListener('click', async ()=>{
+      if(confirm('Delete this notice? This cannot be undone.')){
+        if(item.storagePath){
+          try{ await deleteObject(ref(storage, item.storagePath)); }catch(e){ console.warn('Storage delete failed', e); }
+        }
+        await deleteDoc(doc(db, 'items', item.id));
+        closeOverlay('viewOverlay');
+        toast('Deleted.');
+      }
+    });
+    $('replaceNoticeBtn').addEventListener('click', async ()=>{
+      $('replaceError').textContent = '';
+      const file = $('replaceFile').files[0];
+      if(!file){ $('replaceError').textContent = 'Choose a file first.'; return; }
+      if(file.size > 15000000){ $('replaceError').textContent = 'That file is too big (max 15MB).'; return; }
+      const storagePath = item.storagePath || `notices/${item.id}.pdf`;
+      const sref = ref(storage, storagePath);
+      await uploadBytes(sref, file, { contentType: 'application/pdf' });
+      const url = await getDownloadURL(sref);
+      await setDoc(doc(db, 'items', item.id), {
+        ...item,
+        url,
+        storagePath,
+        updatedAt: serverTimestamp(),
+        uploadedByEmail: currentUser.email
+      });
+      closeOverlay('viewOverlay');
+      toast('Replaced.');
+    });
+  }
+  openOverlay('viewOverlay');
+}
+
+function openItem(item){
+  if(item.type === 'schedule'){
+    openScheduleEditor(item, item.id);
+  }else{
+    openNoticeViewer(item);
+  }
+}
+
+// ---------- push notifications ----------
+async function setupMessaging(){
+  const supported = await messagingIsSupported().catch(()=>false);
+  if(!supported) return;
+  if(!('serviceWorker' in navigator)) return;
+  await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  const messaging = getMessaging(app);
+
+  if(Notification.permission === 'default'){
+    $('notifyBtn').style.display = 'inline-block';
+  }
+  $('notifyBtn').addEventListener('click', async ()=>{
+    const perm = await Notification.requestPermission();
+    if(perm === 'granted'){
+      await registerToken(messaging);
+      $('notifyBtn').style.display = 'none';
+      toast('Notifications enabled.');
+    }
+  });
+  if(Notification.permission === 'granted'){
+    registerToken(messaging);
+  }
+  onMessage(messaging, (payload)=>{
+    const n = payload.notification || {};
+    toast((n.title || 'Update') + ': ' + (n.body || ''));
+  });
+}
+async function registerToken(messaging){
+  try{
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    if(token){
+      await setDoc(doc(db, 'subscribers', token), { registeredAt: serverTimestamp() });
+    }
+  }catch(e){ console.warn('Could not get FCM token', e); }
+}
+setupMessaging();
+</script>
+
+<!-- Third-party libraries for schedule import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+</body>
+</html>
