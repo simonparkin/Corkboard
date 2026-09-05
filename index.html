@@ -28,11 +28,12 @@
     color:var(--ink);
     background-color: var(--cork);
     background-image:
-      radial-gradient(circle at 20% 30%, rgba(0,0,0,0.06) 0, transparent 3%),
-      radial-gradient(circle at 70% 60%, rgba(0,0,0,0.05) 0, transparent 4%),
-      radial-gradient(circle at 40% 80%, rgba(0,0,0,0.05) 0, transparent 3%),
-      radial-gradient(circle at 85% 15%, rgba(0,0,0,0.04) 0, transparent 3%),
-      linear-gradient(var(--cork), var(--cork));
+      linear-gradient(rgba(185,141,91,0.6), rgba(185,141,91,0.6)),
+      url('cork-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: scroll;
+    background-repeat: no-repeat;
     min-height:100vh;
   }
   header{
@@ -42,13 +43,11 @@
     padding:22px 28px;
     background: linear-gradient(180deg, rgba(0,0,0,0.12), transparent);
   }
-  header h1{
-    font-family:'Caveat', cursive;
-    font-weight:700;
-    font-size:2.6rem;
-    color:var(--paper);
-    margin:0;
-    text-shadow: 1px 2px 3px rgba(0,0,0,0.25);
+  .site-title{
+    height:52px;
+    width:auto;
+    display:block;
+    filter: drop-shadow(1px 3px 4px rgba(0,0,0,0.35));
   }
   .header-right{display:flex; align-items:center; gap:10px;}
   button{
@@ -177,7 +176,11 @@
   .close-x{position:absolute; top:14px; right:16px; background:none; color:var(--ink-soft); font-size:1.3rem; padding:2px 8px;}
   .modal-inner{position:relative;}
 
-  iframe.pdf-view{width:100%; height:60vh; border:1px solid var(--paper-edge); border-radius:6px;}
+  iframe.pdf-view{width:100%; height:75vh; border:1px solid var(--paper-edge); border-radius:6px;}
+  .modal.wide{max-width:1000px;}
+  .radio-group{display:flex; gap:16px; margin-top:4px;}
+  .radio-option{display:flex; align-items:center; gap:6px; font-weight:500; font-size:0.92rem; color:var(--ink); margin:0;}
+  .radio-option input{width:auto;}
 
   table.sched{width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9rem;}
   table.sched td, table.sched th{border:1px solid var(--paper-edge); padding:6px 8px; min-width:70px;}
@@ -196,7 +199,7 @@
 <body>
 
 <header>
-  <h1>Corkboard</h1>
+  <img src="corkboard-title.png" alt="Corkboard" class="site-title">
   <div class="header-right">
     <span id="who"></span>
     <button id="notifyBtn" class="btn-ghost btn-small" style="display:none;">Enable notifications</button>
@@ -217,10 +220,10 @@
   <div class="modal modal-inner">
     <button class="close-x" data-close="loginOverlay">&times;</button>
     <h2>Log in</h2>
-    <label>Email</label>
-    <input type="email" id="loginEmail">
     <label>Password</label>
     <input type="password" id="loginPassword">
+    <label>Your name (shown on things you post)</label>
+    <input type="text" id="loginName" placeholder="e.g. Ryan">
     <div class="error-text" id="loginError"></div>
     <div class="row">
       <button class="btn-primary" id="loginSubmit">Log in</button>
@@ -235,8 +238,7 @@
     <h2>Pin something new</h2>
     <div class="choices">
       <button class="choice-btn" id="chooseNotice">
-        <strong>Upload a notice (PDF)</strong>
-        <span>A document people can view, like a poster or announcement</span>
+        <strong>Announcement or Letter (PDF)</strong>
       </button>
       <button class="choice-btn" id="chooseNewSchedule">
         <strong>Create a new schedule</strong>
@@ -254,9 +256,15 @@
 <div class="overlay" id="noticeOverlay">
   <div class="modal modal-inner">
     <button class="close-x" data-close="noticeOverlay">&times;</button>
-    <h2>Upload a notice</h2>
+    <h2>Upload an Announcement or Letter</h2>
     <label>Title (shown on the board)</label>
     <input type="text" id="noticeTitle" placeholder="e.g. Circuit Visit Schedule">
+    <label>Type</label>
+    <div class="radio-group">
+      <label class="radio-option"><input type="radio" name="noticeKind" value="Announcement" checked> Announcement</label>
+      <label class="radio-option"><input type="radio" name="noticeKind" value="Letter"> Letter</label>
+      <label class="radio-option"><input type="radio" name="noticeKind" value="Other"> Other</label>
+    </div>
     <label>PDF file</label>
     <input type="file" id="noticeFile" accept="application/pdf">
     <div class="hint">Up to 15MB.</div>
@@ -280,6 +288,20 @@
     <div class="error-text" id="importError"></div>
     <div class="row">
       <button class="btn-primary" id="importSubmit">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Replace file modal -->
+<div class="overlay" id="replaceOverlay">
+  <div class="modal modal-inner">
+    <button class="close-x" data-close="replaceOverlay">&times;</button>
+    <h2>Replace file</h2>
+    <label>New PDF file</label>
+    <input type="file" id="replaceFileInput" accept="application/pdf">
+    <div class="error-text" id="replaceError"></div>
+    <div class="row">
+      <button class="btn-primary" id="replaceSubmit">Replace</button>
     </div>
   </div>
 </div>
@@ -318,6 +340,7 @@ const firebaseConfig = {
   appId: "1:573617407877:web:c87f4ce5d1e57ffe68e6ec"
 };
 const VAPID_KEY = "BHDoUW8Y5c29BpwkSPUSforYtAJijcNqvD1OB8vfrMtnRuLXnfIvY0DEDZmNKXFUdcM7DTi8cmtkcVIqNBfUFAs";
+const ADMIN_EMAIL = "wakefieldsouthcong@gmail.com";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -348,15 +371,37 @@ function fmtDate(ts){
 }
 
 // ---------- auth ----------
+function getDisplayName(){
+  return localStorage.getItem('corkboardDisplayName') || 'Admin';
+}
+function renderWho(){
+  const name = getDisplayName();
+  $('who').innerHTML = currentUser
+    ? `${escapeHtml(name)} <a href="#" id="editNameLink" style="color:inherit; opacity:0.75;">(edit)</a>`
+    : '';
+  const link = document.getElementById('editNameLink');
+  if(link){
+    link.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const updated = prompt('Your name (shown on things you post):', getDisplayName());
+      if(updated !== null && updated.trim()){
+        localStorage.setItem('corkboardDisplayName', updated.trim());
+        renderWho();
+      }
+    });
+  }
+}
 $('loginBtn').addEventListener('click', ()=> openOverlay('loginOverlay'));
 $('loginSubmit').addEventListener('click', async ()=>{
   $('loginError').textContent = '';
   try{
-    await signInWithEmailAndPassword(auth, $('loginEmail').value.trim(), $('loginPassword').value);
+    await signInWithEmailAndPassword(auth, ADMIN_EMAIL, $('loginPassword').value);
+    const typedName = $('loginName').value.trim();
+    if(typedName){ localStorage.setItem('corkboardDisplayName', typedName); }
     closeOverlay('loginOverlay');
-    $('loginEmail').value=''; $('loginPassword').value='';
+    $('loginPassword').value=''; $('loginName').value='';
   }catch(e){
-    $('loginError').textContent = 'Could not log in — check the email and password.';
+    $('loginError').textContent = 'Could not log in — check the password.';
   }
 });
 $('logoutBtn').addEventListener('click', ()=> signOut(auth));
@@ -365,7 +410,7 @@ onAuthStateChanged(auth, (user)=>{
   currentUser = user;
   $('loginBtn').style.display = user ? 'none' : 'inline-block';
   $('logoutBtn').style.display = user ? 'inline-block' : 'none';
-  $('who').textContent = user ? user.email : '';
+  renderWho();
   $('fab').style.display = user ? 'flex' : 'none';
   $('fab').style.display = user ? 'block' : 'none';
   renderBoard();
@@ -388,10 +433,10 @@ function renderBoard(){
     card.innerHTML = `
       <div class="pin"></div>
       <div>
-        <div class="card-kind">${item.type === 'schedule' ? 'Schedule' : 'Notice'}</div>
+        <div class="card-kind">${item.type === 'schedule' ? 'Schedule' : (item.kind || 'Notice')}</div>
         <div class="card-title">${escapeHtml(item.title || 'Untitled')}</div>
       </div>
-      <div class="card-meta">Updated ${fmtDate(item.updatedAt)}${item.uploadedByEmail ? ' by ' + escapeHtml(item.uploadedByEmail) : ''}</div>
+      <div class="card-meta">Updated ${fmtDate(item.updatedAt)}${item.uploadedByName ? ' by ' + escapeHtml(item.uploadedByName) : ''}</div>
     `;
     card.addEventListener('click', ()=> openItem(item));
     board.appendChild(card);
@@ -422,17 +467,23 @@ $('noticeSubmit').addEventListener('click', async ()=>{
     const sref = ref(storage, storagePath);
     await uploadBytes(sref, file, { contentType: 'application/pdf' });
     const url = await getDownloadURL(sref);
-    await setDoc(doc(db, 'items', id), {
+    const kind = document.querySelector('input[name="noticeKind"]:checked').value;
+    const newItem = {
+      id,
       type: 'notice',
       title,
       url,
       storagePath,
-      updatedAt: serverTimestamp(),
-      uploadedByEmail: currentUser ? currentUser.email : null
+      kind,
+      uploadedByName: currentUser ? getDisplayName() : null
+    };
+    await setDoc(doc(db, 'items', id), {
+      ...newItem,
+      updatedAt: serverTimestamp()
     });
     closeOverlay('noticeOverlay');
     $('noticeTitle').value=''; $('noticeFile').value='';
-    toast('Notice pinned up.');
+    openNoticeViewer(newItem);
   }catch(e){
     console.error(e);
     $('noticeError').textContent = 'Something went wrong saving that.';
@@ -521,6 +572,7 @@ async function parsePdfToTable(file){
 // ---------- schedule editor ----------
 function openScheduleEditor(schedule, existingId){
   const body = $('viewModalBody');
+  body.classList.remove('wide');
   const isAdmin = !!currentUser;
   let cols = schedule.columns.length;
   let rowsData = schedule.rows.map(r=> r.slice());
@@ -598,7 +650,7 @@ function openScheduleEditor(schedule, existingId){
         columns: new Array(cols).fill(0).map((_,i)=>'Column ' + (i+1)),
         rows: rowsData,
         updatedAt: serverTimestamp(),
-        uploadedByEmail: currentUser.email
+        uploadedByName: getDisplayName()
       });
       closeOverlay('viewOverlay');
       toast('Schedule saved.');
@@ -620,20 +672,21 @@ function openScheduleEditor(schedule, existingId){
 function openNoticeViewer(item){
   const body = $('viewModalBody');
   const isAdmin = !!currentUser;
+  body.classList.add('wide');
   body.innerHTML = `
     <button class="close-x" data-close="viewOverlay">&times;</button>
     <h2>${escapeHtml(item.title)}</h2>
-    <iframe class="pdf-view" src="${item.url}"></iframe>
+    <iframe class="pdf-view" src="${item.url}#toolbar=1&navpanes=0&view=FitH"></iframe>
     ${isAdmin ? `
-    <label>Replace file</label>
-    <input type="file" id="replaceFile" accept="application/pdf">
-    <div class="error-text" id="replaceError"></div>
     <div class="row">
       <button class="btn-danger" id="deleteNoticeBtn">Delete</button>
       <button class="btn-primary" id="replaceNoticeBtn">Replace</button>
     </div>` : ''}
   `;
-  document.querySelector('[data-close="viewOverlay"]').addEventListener('click', ()=> closeOverlay('viewOverlay'));
+  document.querySelector('[data-close="viewOverlay"]').addEventListener('click', ()=>{
+    closeOverlay('viewOverlay');
+    body.classList.remove('wide');
+  });
   if(isAdmin){
     $('deleteNoticeBtn').addEventListener('click', async ()=>{
       if(confirm('Delete this notice? This cannot be undone.')){
@@ -642,27 +695,29 @@ function openNoticeViewer(item){
         }
         await deleteDoc(doc(db, 'items', item.id));
         closeOverlay('viewOverlay');
+        body.classList.remove('wide');
         toast('Deleted.');
       }
     });
-    $('replaceNoticeBtn').addEventListener('click', async ()=>{
+    $('replaceNoticeBtn').addEventListener('click', ()=>{
       $('replaceError').textContent = '';
-      const file = $('replaceFile').files[0];
-      if(!file){ $('replaceError').textContent = 'Choose a file first.'; return; }
-      if(file.size > 15000000){ $('replaceError').textContent = 'That file is too big (max 15MB).'; return; }
-      const storagePath = item.storagePath || `notices/${item.id}.pdf`;
-      const sref = ref(storage, storagePath);
-      await uploadBytes(sref, file, { contentType: 'application/pdf' });
-      const url = await getDownloadURL(sref);
-      await setDoc(doc(db, 'items', item.id), {
-        ...item,
-        url,
-        storagePath,
-        updatedAt: serverTimestamp(),
-        uploadedByEmail: currentUser.email
-      });
-      closeOverlay('viewOverlay');
-      toast('Replaced.');
+      $('replaceFileInput').value = '';
+      openOverlay('replaceOverlay');
+      $('replaceSubmit').onclick = async ()=>{
+        $('replaceError').textContent = '';
+        const file = $('replaceFileInput').files[0];
+        if(!file){ $('replaceError').textContent = 'Choose a file first.'; return; }
+        if(file.size > 15000000){ $('replaceError').textContent = 'That file is too big (max 15MB).'; return; }
+        const storagePath = item.storagePath || `notices/${item.id}.pdf`;
+        const sref = ref(storage, storagePath);
+        await uploadBytes(sref, file, { contentType: 'application/pdf' });
+        const url = await getDownloadURL(sref);
+        const updated = { ...item, url, storagePath, updatedAt: serverTimestamp(), uploadedByName: getDisplayName() };
+        await setDoc(doc(db, 'items', item.id), updated);
+        closeOverlay('replaceOverlay');
+        toast('Replaced.');
+        openNoticeViewer({ ...updated, updatedAt: new Date() });
+      };
     });
   }
   openOverlay('viewOverlay');
