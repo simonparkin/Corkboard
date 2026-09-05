@@ -681,7 +681,7 @@ async function setupMessaging(){
   const supported = await messagingIsSupported().catch(()=>false);
   if(!supported) return;
   if(!('serviceWorker' in navigator)) return;
-  await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  await navigator.serviceWorker.register('./firebase-messaging-sw.js');
   const messaging = getMessaging(app);
 
   if(Notification.permission === 'default'){
