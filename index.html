@@ -394,6 +394,23 @@ function toast(msg){
   clearTimeout(toast._t);
   toast._t = setTimeout(()=> t.style.display='none', 4000);
 }
+// Wraps a button's click handler so a second tap (accidental double-tap,
+// or a slow connection making someone tap again) can't trigger the
+// action twice while the first attempt is still in flight.
+function guardedClick(btn, handler){
+  btn.addEventListener('click', async ()=>{
+    if(btn.disabled) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try{
+      await handler();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+}
 function fmtDate(ts){
   if(!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -509,7 +526,7 @@ $('chooseNewSchedule').addEventListener('click', ()=>{
 });
 $('chooseImportSchedule').addEventListener('click', ()=>{ closeOverlay('addChooserOverlay'); openOverlay('importOverlay'); });
 
-$('noticeSubmit').addEventListener('click', async ()=>{
+guardedClick($('noticeSubmit'), async ()=>{
   $('noticeError').textContent='';
   const title = $('noticeTitle').value.trim();
   const file = $('noticeFile').files[0];
@@ -694,7 +711,7 @@ function openScheduleEditor(schedule, existingId){
       if(cols>1){ cols--; rowsData.forEach(r=> r.pop()); }
       $('schedTableWrap').innerHTML = tableHtml();
     });
-    $('saveScheduleBtn').addEventListener('click', async ()=>{
+    guardedClick($('saveScheduleBtn'), async ()=>{
       syncFromDom();
       const title = $('schedTitleInput').value.trim() || 'Untitled schedule';
       const id = existingId || crypto.randomUUID();
@@ -748,7 +765,7 @@ function openGeneralNoticeEditor(genItem, existingId){
   document.querySelector('[data-close="viewOverlay"]').addEventListener('click', ()=> closeOverlay('viewOverlay'));
 
   if(isAdmin){
-    $('saveGeneralBtn').addEventListener('click', async ()=>{
+    guardedClick($('saveGeneralBtn'), async ()=>{
       const title = $('genTitleInput').value.trim() || 'Untitled notice';
       const text = $('genBodyInput').innerText.trim();
       const id = existingId || crypto.randomUUID();
@@ -824,19 +841,28 @@ function openNoticeViewer(item){
       $('replaceFileInput').value = '';
       openOverlay('replaceOverlay');
       $('replaceSubmit').onclick = async ()=>{
+        const btn = $('replaceSubmit');
+        if(btn.disabled) return;
         $('replaceError').textContent = '';
         const file = $('replaceFileInput').files[0];
         if(!file){ $('replaceError').textContent = 'Choose a file first.'; return; }
         if(file.size > 15000000){ $('replaceError').textContent = 'That file is too big (max 15MB).'; return; }
-        const storagePath = item.storagePath || `notices/${item.id}.pdf`;
-        const sref = ref(storage, storagePath);
-        await uploadBytes(sref, file, { contentType: 'application/pdf' });
-        const url = await getDownloadURL(sref);
-        const updated = { ...item, url, storagePath, updatedAt: serverTimestamp(), uploadedByName: getDisplayName() };
-        await setDoc(doc(db, 'items', item.id), updated);
-        closeOverlay('replaceOverlay');
-        toast('Replaced.');
-        openNoticeViewer({ ...updated, updatedAt: new Date() });
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try{
+          const storagePath = item.storagePath || `notices/${item.id}.pdf`;
+          const sref = ref(storage, storagePath);
+          await uploadBytes(sref, file, { contentType: 'application/pdf' });
+          const url = await getDownloadURL(sref);
+          const updated = { ...item, url, storagePath, updatedAt: serverTimestamp(), uploadedByName: getDisplayName() };
+          await setDoc(doc(db, 'items', item.id), updated);
+          closeOverlay('replaceOverlay');
+          toast('Replaced.');
+          openNoticeViewer({ ...updated, updatedAt: new Date() });
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Replace';
+        }
       };
     });
   }
