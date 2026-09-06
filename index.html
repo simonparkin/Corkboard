@@ -931,7 +931,7 @@ async function setupMessaging(){
   const supported = await messagingIsSupported().catch(()=>false);
   if(!supported) return;
   if(!('serviceWorker' in navigator)) return;
-  await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+  const swRegistration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
   const messaging = getMessaging(app);
 
   if(Notification.permission === 'default'){
@@ -940,29 +940,35 @@ async function setupMessaging(){
   $('notifyBtn').addEventListener('click', async ()=>{
     const perm = await Notification.requestPermission();
     if(perm === 'granted'){
-      await registerToken(messaging);
+      const ok = await registerToken(messaging, swRegistration);
       $('notifyBtn').style.display = 'none';
-      toast('Notifications enabled.');
+      toast(ok ? 'Notifications enabled.' : 'Could not enable notifications on this device.');
     }
   });
   if(Notification.permission === 'granted'){
-    registerToken(messaging);
+    registerToken(messaging, swRegistration);
   }
   onMessage(messaging, (payload)=>{
     const n = payload.notification || {};
     toast((n.title || 'Update') + ': ' + (n.body || ''));
   });
 }
-async function registerToken(messaging){
+async function registerToken(messaging, swRegistration){
   try{
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
     if(token){
       await setDoc(doc(db, 'subscribers', token), { registeredAt: serverTimestamp() });
+      return true;
     }
-  }catch(e){ console.warn('Could not get FCM token', e); }
+    return false;
+  }catch(e){
+    console.warn('Could not get FCM token', e);
+    return false;
+  }
 }
 setupMessaging();
 </script>
+
 
 <!-- Third-party libraries for schedule import -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
