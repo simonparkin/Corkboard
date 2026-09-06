@@ -975,7 +975,7 @@ async function setupMessaging(){
     registerToken(messaging, swRegistration);
   }
   onMessage(messaging, (payload)=>{
-    const n = payload.notification || {};
+    const n = payload.data || {};
     toast((n.title || 'Update') + ': ' + (n.body || ''));
   });
 }
