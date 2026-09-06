@@ -679,16 +679,21 @@ function openScheduleEditor(schedule, existingId){
       syncFromDom();
       const title = $('schedTitleInput').value.trim() || 'Untitled schedule';
       const id = existingId || crypto.randomUUID();
-      await setDoc(doc(db, 'items', id), {
-        type: 'schedule',
-        title,
-        columns: new Array(cols).fill(0).map((_,i)=>'Column ' + (i+1)),
-        rows: rowsData,
-        updatedAt: serverTimestamp(),
-        uploadedByName: getDisplayName()
-      });
-      closeOverlay('viewOverlay');
-      toast('Schedule saved.');
+      try{
+        await setDoc(doc(db, 'items', id), {
+          type: 'schedule',
+          title,
+          columns: new Array(cols).fill(0).map((_,i)=>'Column ' + (i+1)),
+          rowsJson: JSON.stringify(rowsData),
+          updatedAt: serverTimestamp(),
+          uploadedByName: getDisplayName()
+        });
+        closeOverlay('viewOverlay');
+        toast('Schedule saved.');
+      }catch(e){
+        console.error(e);
+        toast('Something went wrong saving that schedule.');
+      }
     });
     if(existingId){
       $('deleteScheduleBtn').addEventListener('click', async ()=>{
@@ -840,7 +845,8 @@ async function renderPdfIntoViewer(url){
 
 function openItem(item){
   if(item.type === 'schedule'){
-    openScheduleEditor(item, item.id);
+    const rows = item.rowsJson ? JSON.parse(item.rowsJson) : (item.rows || [['','','']]);
+    openScheduleEditor({ ...item, rows }, item.id);
   }else{
     openNoticeViewer(item);
   }
